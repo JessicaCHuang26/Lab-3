@@ -356,7 +356,8 @@ HOVER HIGHLIGHT (DEMO STYLE)
   });
 });
 
-const csvUrl = "YOUR_CSV_URL";
+const csvUrl =
+  "https://raw.githubusercontent.com/JessicaCHuang26/Lab-3/495482c21ddf8db6031605f8cf94d38b59fe7386/table.csv";
 
 const csvButton = document.getElementById("csvbutton");
 const csvPanel = document.getElementById("csvpanel");
