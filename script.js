@@ -1,21 +1,21 @@
+//Helper function
 function toTitleCase(str) {
   return str.toLowerCase().replace(/\b\w/g, (letter) => letter.toUpperCase());
-}
+} //To help convert strings in geojson(default uppercase) to title-case style
 
-//add Mapbox token
+//Add mapbox token
 mapboxgl.accessToken =
   "pk.eyJ1IjoiamVzc2ljYWh1YW5nIiwiYSI6ImNtazNjNmdmeTBkN3AzZnEyZHRscHdod28ifQ.Pa9LhzBk1H75KBMwBngDjA";
 
-const map = new mapboxgl.Map({
-  container: "my-map",
-  style: "mapbox://styles/jessicahuang/cmmaww18f009b01qrbwn81028",
-  center: [-79.38718, 43.658],
-  zoom: 13,
-  bearing: -17, //rotate map to upright position
-});
+//Create an initial map view variable for the default view button to return to
+const initialView = {
+  center: [-79.33, 43.72],
+  zoom: 10.5,
+  bearing: -17,
+  pitch: 0,
+};
 
-const legendItemsContainer = document.getElementById("legend-items");
-
+//Create legend items
 const legenditems = [
   {
     label: "Boulevard",
@@ -78,15 +78,43 @@ const legenditems = [
     value: "Traffic Island",
     id: "trafficcheck",
   },
-  {
-    label: "Other",
-    colour: "#6c757d",
-    value: "OTHER_GROUP",
-    id: "othercheck",
-  },
+  { label: "Other", colour: "#6c757d", value: "OTHER_GROUP", id: "othercheck" },
 ];
 
-// Build ONE combined legend/filter UI
+//Store all the other-related values in geojson for easier filtering
+const OTHER_TYPES = [
+  "OTHER_CEMETERY",
+  "OTHER_CITY",
+  "OTHER_GOLFCOURSE",
+  "OTHER_HYDRO",
+  "OTHER_PROVINCIAL_FEDERAL",
+  "OTHER_ROAD",
+  "OTHER_TRCA",
+  "OTHER_UNKNOWN",
+];
+
+//Track the search input
+let currentSearch = "";
+
+//Set up variables to get elements
+const legendItemsContainer = document.getElementById("legend-items");
+const searchInput = document.getElementById("searchpark");
+const returnButton = document.getElementById("returnbutton");
+
+//Create map view
+const map = new mapboxgl.Map({
+  container: "my-map",
+  style: "mapbox://styles/jessicahuang/cmmaww18f009b01qrbwn81028", //added my mapbox style
+  center: initialView.center,
+  zoom: initialView.zoom,
+  bearing: initialView.bearing,
+  pitch: initialView.pitch,
+});
+
+//Add map navigation buttons and controls to bottom right of map
+map.addControl(new mapboxgl.NavigationControl(), "bottom-right");
+
+//Create legend items(label, checkbox, and circle symbology)
 legenditems.forEach(({ label, colour, id }) => {
   const row = document.createElement("label");
   row.className = "legend-row";
@@ -107,13 +135,75 @@ legenditems.forEach(({ label, colour, id }) => {
   legendItemsContainer.appendChild(row);
 });
 
+//Implement the return button event
+returnButton.addEventListener("click", () => {
+  map.flyTo({
+    center: initialView.center,
+    zoom: initialView.zoom,
+    bearing: initialView.bearing,
+    pitch: initialView.pitch,
+    duration: 1200,
+    essential: true,
+  });
+});
+
+//Implement the checkbox filtering functionality
+legendItemsContainer.addEventListener("change", () => {
+  applyFilters();
+});
+
+//Implement the search functionality for search bar
+searchInput.addEventListener("input", (e) => {
+  currentSearch = e.target.value.toLowerCase().trim();
+  applyFilters();
+});
+
+//Helper function to get allowed green space types based on checked boxes
+function getAllowedTypesFromChecks() {
+  const allowed = [];
+
+  for (const item of legenditems) {
+    const checked = document.getElementById(item.id).checked;
+    if (!checked) continue;
+
+    if (item.value === "OTHER_GROUP") {
+      allowed.push(...OTHER_TYPES);
+    } else {
+      allowed.push(item.value);
+    }
+  }
+
+  return allowed;
+}
+
+//Apply filtering based on checkbox selection and search input
+function applyFilters() {
+  //Only apply filter after the polygon layer exists
+  if (!map.getLayer("park-polygon")) return;
+  const allowedTypes = getAllowedTypesFromChecks();
+  //Create a filter based on selected green space types in checkbox
+  const typeFilter =
+    allowedTypes.length === 0
+      ? ["==", ["get", "AREA_CLASS"], "__NO_MATCH__"]
+      : ["in", ["get", "AREA_CLASS"], ["literal", allowedTypes]];
+  //Create a filter based on the search bar input
+  const nameFilter =
+    currentSearch === ""
+      ? true
+      : ["in", currentSearch, ["downcase", ["get", "AREA_NAME"]]];
+  //Combine result from both checkbox and search bar to filter the polygon
+  map.setFilter("park-polygon", ["all", typeFilter, nameFilter]);
+}
+
 map.on("load", () => {
+  //Add green space data source
   map.addSource("park-data", {
     type: "geojson",
     data: "https://raw.githubusercontent.com/JessicaCHuang26/Lab-3/main/Green%20Spaces.geojson",
     promoteId: "_id",
   });
 
+  //Add polygons and fill colour for each types of green space based on the AREA_CLASS geojson column
   map.addLayer({
     id: "park-polygon",
     type: "fill",
@@ -122,7 +212,6 @@ map.on("load", () => {
       "fill-color": [
         "match",
         ["get", "AREA_CLASS"],
-
         "Boulevard",
         "#f4a261",
         "Building Grounds",
@@ -145,75 +234,14 @@ map.on("load", () => {
         "#2a9d8f",
         "Traffic Island",
         "#e76f51",
-
-        // all OTHER_* fall to default grey unless you list them
-        "#6c757d",
+        "#6c757d", //Fill all the other categories grey
       ],
       "fill-opacity": 1,
       "fill-outline-color": "grey",
     },
   });
 
-  map.on("mouseenter", "park-polygon", () => {
-    map.getCanvas().style.cursor = "pointer";
-  });
-
-  map.on("mouseleave", "park-polygon", () => {
-    map.getCanvas().style.cursor = "";
-  });
-
-  map.on("click", "park-polygon", (e) => {
-    const feature = e.features[0];
-
-    // get bounding box of the polygon
-    const coordinates = feature.geometry.coordinates[0];
-
-    let bounds = new mapboxgl.LngLatBounds();
-
-    coordinates.forEach((coord) => {
-      bounds.extend(coord);
-    });
-
-    // fly to the polygon
-    map.fitBounds(bounds, {
-      padding: 80,
-      maxZoom: 16,
-      duration: 1200,
-      bearing: map.getBearing(),
-    });
-  });
-
-  updateGreenSpaceFilter();
-  let hoverPopup = new mapboxgl.Popup({
-    closeButton: false,
-    closeOnClick: false,
-  });
-
-  map.on("mousemove", "park-polygon", (e) => {
-    map.getCanvas().style.cursor = "pointer";
-
-    const feature = e.features[0];
-    const name = feature.properties.AREA_NAME;
-    const Type = feature.properties.AREA_CLASS;
-    const formattedName = toTitleCase(name);
-    const formattedType = toTitleCase(Type);
-
-    hoverPopup
-      .setLngLat(e.lngLat)
-      .setHTML(
-        `
-        <b>Name:</b> ${formattedName}<br>
-        <b>Type:</b> ${formattedType}
-        `,
-      )
-      .addTo(map);
-  });
-
-  /*--------------------------------------------------------------------
-HOVER HIGHLIGHT (DEMO STYLE)
---------------------------------------------------------------------*/
-
-  // 1) Add an OUTLINE layer above your fill layer (this is the highlight)
+  //Add highlight effect when hover over polygons
   map.addLayer({
     id: "park-highlight",
     type: "line",
@@ -221,18 +249,37 @@ HOVER HIGHLIGHT (DEMO STYLE)
     paint: {
       "line-color": "#ffff00",
       "line-width": 5,
-      "line-opacity": 0, // hidden by default
+      "line-opacity": [
+        "case",
+        ["boolean", ["feature-state", "hover"], false],
+        1, //Make lines visible when the 'hover' state is True
+        0, //Hide the lines by default so it won't show when the map loads
+      ],
     },
   });
 
-  // 2) Track which feature is hovered
+  //Setup the initial filter once the map loads
+  applyFilters();
+
+  //Track which feature is hovered
   let hoveredFeatureId = null;
 
-  // 3) On mouse move, highlight ONLY the feature under the mouse
-  map.on("mousemove", "park-polygon", (e) => {
-    map.getCanvas().style.cursor = "pointer";
+  //Setup the popup for when user hover the polygons
+  const hoverPopup = new mapboxgl.Popup({
+    closeButton: false,
+    closeOnClick: false,
+  });
 
-    // remove previous highlight
+  //Change cursor to pointer when mouse enter polygons
+  map.on("mouseenter", "park-polygon", () => {
+    map.getCanvas().style.cursor = "pointer";
+  });
+
+  //Highlight polygon and show popup when hover
+  map.on("mousemove", "park-polygon", (e) => {
+    const feature = e.features[0];
+
+    //Remove previous highlighted part
     if (hoveredFeatureId !== null) {
       map.setFeatureState(
         { source: "park-data", id: hoveredFeatureId },
@@ -240,164 +287,59 @@ HOVER HIGHLIGHT (DEMO STYLE)
       );
     }
 
-    // set new hovered id
-    hoveredFeatureId = e.features[0].id;
+    //Set a new hovered id
+    hoveredFeatureId = feature.id;
 
-    // add highlight
+    //Add highlight
     map.setFeatureState(
       { source: "park-data", id: hoveredFeatureId },
       { hover: true },
     );
 
-    // show the highlight outline
-    map.setPaintProperty("park-highlight", "line-opacity", [
-      "case",
-      ["boolean", ["feature-state", "hover"], false],
-      1,
-      0,
-    ]);
+    //Grab name and type of green space from geojson
+    const name = feature.properties.AREA_NAME;
+    const type = feature.properties.AREA_CLASS;
+    const formattedName = toTitleCase(name); //Use my helper function to change everything to title-case
+    const formattedType = toTitleCase(type);
+    hoverPopup
+      .setLngLat(e.lngLat)
+      .setHTML(
+        `
+        <b>Name:</b> ${formattedName}<br>
+        <b>Type:</b> ${formattedType}
+      `,
+      )
+      .addTo(map);
   });
 
-  // 4) When mouse leaves the layer, remove highlight
   map.on("mouseleave", "park-polygon", () => {
     map.getCanvas().style.cursor = "";
-
     if (hoveredFeatureId !== null) {
       map.setFeatureState(
         { source: "park-data", id: hoveredFeatureId },
         { hover: false },
       );
     }
-
-    hoveredFeatureId = null;
-  });
-
-  map.on("mouseleave", "park-polygon", () => {
-    map.getCanvas().style.cursor = "";
+    hoveredFeatureId = null; //Remove highlight and popup once mouse leave polygon
     hoverPopup.remove();
   });
 
-  // When ANY checkbox changes, update the filter (demo-style: one listener)
-  legendItemsContainer.addEventListener("change", () => {
-    updateGreenSpaceFilter();
-  });
+  //Implement the zooming function once a polygon is clicked
+  map.on("click", "park-polygon", (e) => {
+    const feature = e.features[0];
 
-  function updateGreenSpaceFilter() {
-    // read checkbox states (prof-style: explicit variables)
-    let boulevardcheck = document.getElementById("boulevardcheck").checked;
-    let buildinggroundscheck = document.getElementById(
-      "buildinggroundscheck",
-    ).checked;
-    let cemeterycheck = document.getElementById("cemeterycheck").checked;
-    let civiccheck = document.getElementById("civiccheck").checked;
-    let culdesaccheck = document.getElementById("culdesaccheck").checked;
-    let golfcheck = document.getElementById("golfcheck").checked;
-    let hydrocheck = document.getElementById("hydrocheck").checked;
-    let opengreencheck = document.getElementById("opengreencheck").checked;
-    let orphancheck = document.getElementById("orphancheck").checked;
-    let parkcheck = document.getElementById("parkcheck").checked;
-    let trafficcheck = document.getElementById("trafficcheck").checked;
-    let othercheck = document.getElementById("othercheck").checked;
+    //Compute a bounding box consisting the polygon for the zooming function
+    const coordinates = feature.geometry.coordinates[0];
 
-    // build allowed list
-    let allowedTypes = [];
+    const bounds = new mapboxgl.LngLatBounds();
+    coordinates.forEach((coord) => bounds.extend(coord));
 
-    if (boulevardcheck) allowedTypes.push("Boulevard");
-    if (buildinggroundscheck) allowedTypes.push("Building Grounds");
-    if (cemeterycheck) allowedTypes.push("Cemetery");
-    if (civiccheck) allowedTypes.push("Civic Centre Square");
-    if (culdesaccheck) allowedTypes.push("Cul de Sac");
-    if (golfcheck) allowedTypes.push("Golf Course");
-    if (hydrocheck) allowedTypes.push("Hydro Field/Utility Corridor");
-    if (opengreencheck) allowedTypes.push("Open Green Space");
-    if (orphancheck) allowedTypes.push("Orphaned Space");
-    if (parkcheck) allowedTypes.push("Park");
-    if (trafficcheck) allowedTypes.push("Traffic Island");
-
-    // handle OTHER_* (your data has many OTHER_ values)
-    if (othercheck) {
-      allowedTypes.push(
-        "OTHER_CEMETERY",
-        "OTHER_CITY",
-        "OTHER_GOLFCOURSE",
-        "OTHER_HYDRO",
-        "OTHER_PROVINCIAL_FEDERAL",
-        "OTHER_ROAD",
-        "OTHER_TRCA",
-        "OTHER_UNKNOWN",
-      );
-    }
-
-    // apply filter to your layer
-    // If none checked, show nothing:
-    if (allowedTypes.length === 0) {
-      map.setFilter("park-polygon", [
-        "==",
-        ["get", "AREA_CLASS"],
-        "__NO_MATCH__",
-      ]);
-    } else {
-      map.setFilter("park-polygon", [
-        "in",
-        ["get", "AREA_CLASS"],
-        ["literal", allowedTypes],
-      ]);
-    }
-  }
-
-  document.getElementById("searchpark").addEventListener("input", (e) => {
-    const search = e.target.value.toLowerCase();
-
-    map.setFilter("park-polygon", [
-      "in",
-      search,
-      ["downcase", ["get", "AREA_NAME"]],
-    ]);
-  });
-});
-
-const csvUrl =
-  "https://raw.githubusercontent.com/JessicaCHuang26/Lab-3/495482c21ddf8db6031605f8cf94d38b59fe7386/table.csv";
-
-const csvButton = document.getElementById("csvbutton");
-const csvPanel = document.getElementById("csvpanel");
-const csvTable = document.getElementById("csvtable");
-
-let csvLoaded = false;
-
-csvButton.addEventListener("click", async () => {
-  // toggle panel
-  if (csvPanel.style.display === "block") {
-    csvPanel.style.display = "none";
-    return;
-  }
-
-  csvPanel.style.display = "block";
-
-  // load csv only once
-  if (csvLoaded) return;
-  csvLoaded = true;
-
-  const text = await fetch(csvUrl).then((r) => r.text());
-
-  const rows = text
-    .trim()
-    .split("\n")
-    .map((r) => r.split(","));
-
-  const table = document.createElement("table");
-
-  rows.forEach((row, i) => {
-    const tr = document.createElement("tr");
-
-    row.forEach((cell) => {
-      const el = document.createElement(i === 0 ? "th" : "td");
-      el.textContent = cell;
-      tr.appendChild(el);
+    //Zoom to the polygon once clicked
+    map.fitBounds(bounds, {
+      padding: 80,
+      maxZoom: 16,
+      duration: 1200,
+      bearing: map.getBearing(),
     });
-
-    table.appendChild(tr);
   });
-
-  csvTable.appendChild(table);
 });

@@ -3,33 +3,39 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Toronto Map</title>
-    <!-- mapbox GL JS -->
+    <title>Toronto Green Space</title>
+    <!-- Mapbox GL JS -->
     <script src="https://api.mapbox.com/mapbox-gl-js/v3.18.1/mapbox-gl.js"></script>
     <link
       href="https://api.mapbox.com/mapbox-gl-js/v3.18.1/mapbox-gl.css"
       rel="stylesheet"
     />
-    <!-- CSS -->
+    <!-- Link CSS File-->
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
-    <!-- MAP CONTAINER -->
+    <!-- Map Container -->
     <div id="my-map" class="map-container"></div>
 
-    <button id="csvbutton" class="control-btn">View CSV Data</button>
-
-    <div id="csvpanel" class="csv-panel">
-      <h4>Green Spaces Data</h4>
-      <div id="csvtable"></div>
-    </div>
-    <!-- ONE combined Legend + Filter panel -->
+    <!-- Legend-->
     <div id="legend" class="legend">
+      <!-- Legend Title-->
       <h4>Green Space Type</h4>
       <div id="legend-items"></div>
     </div>
-
+    <!-- Park Name Search Bar-->
     <input type="text" id="searchpark" placeholder="Search park name" />
+    <!-- Return to Default View Button-->
+    <button
+      id="returnbutton"
+      class="circle-btn"
+      data-tooltip="Reset map view"
+      aria-label="Reset map view"
+    >
+      <!-- Symbol for the Button-->
+      ⌖
+    </button>
+    <!-- Link Javascript File-->
     <script src="script.js"></script>
   </body>
 </html>

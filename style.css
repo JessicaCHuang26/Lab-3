@@ -1,8 +1,25 @@
+/*Map Container*/
 .map-container {
   position: absolute;
   top: 0;
   bottom: 0;
+  left: 0;
+  right: 0;
   width: 100%;
+}
+
+/*Legend Styles*/
+.legend {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background: white;
+  padding: 12px;
+  border-radius: 8px;
+  font:
+    12px/1.4 Arial,
+    sans-serif;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
 }
 
 .legend-colcircle {
@@ -23,102 +40,64 @@
   cursor: pointer;
 }
 
+/*Legend Checkbox Styles */
 .legend-row input[type="checkbox"] {
   margin: 0;
 }
 
-.legend {
-  position: absolute;
-  top: 20px;
-  right: 20px;
-  background: white;
-  padding: 12px;
-  border-radius: 8px;
-  font:
-    12px/1.4 Arial,
-    sans-serif;
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
-}
-
-/* Put the controls on top of the map */
-#typefieldset {
-  position: absolute;
-  top: 20px;
-  right: 20px;
-  z-index: 2; /* must be higher than the map canvas */
-  background: white;
-  padding: 10px;
-  border-radius: 8px;
-  font-size: 14px;
-}
-/* Search box container */
+/* Search Box Styles*/
 #searchpark {
   position: absolute;
   top: 20px;
   left: 20px;
-  z-index: 2; /* ensures it sits above the map */
-
   width: 220px;
   padding: 8px 10px;
-
   border-radius: 6px;
   border: 1px solid #ccc;
-
   font-size: 13px;
   font-family: Arial, sans-serif;
-
   background: white;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
 }
 
-.control-btn {
-  position: absolute;
-  top: 70px;
-  left: 20px;
-  z-index: 5;
-
-  background: white;
-  border: 1px solid #ccc;
-  border-radius: 6px;
-
-  padding: 8px 12px;
-  font-size: 13px;
-  cursor: pointer;
-
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-}
-
-.csv-panel {
+/*Default View Button Styles*/
+.circle-btn {
   position: absolute;
   top: 110px;
   left: 20px;
-  width: 400px;
-  max-height: 300px;
-
-  overflow: auto;
-
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid #ccc;
   background: white;
-  padding: 10px;
-  border-radius: 8px;
-
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
-
-  display: none;
-  z-index: 5;
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  overflow: visible;
 }
 
-.csv-panel table {
-  border-collapse: collapse;
-  width: 100%;
+/*Tooltip for Button*/
+.circle-btn::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: 90%;
+  top: 110%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.85);
+  color: #fff;
+  padding: 6px 8px;
+  border-radius: 6px;
   font-size: 12px;
+  opacity: 0;
 }
 
-.csv-panel th,
-.csv-panel td {
-  border: 1px solid #ddd;
-  padding: 4px;
+.circle-btn:hover::after {
+  opacity: 1;
 }
 
-.csv-panel th {
-  background: #f2f2f2;
+/*Reposition Map Control Functionality*/
+.mapboxgl-ctrl-bottom-right {
+  right: 20px; /*move a bit to the left as it goes out of screen*/
 }
